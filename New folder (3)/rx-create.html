@@ -1,0 +1,582 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Prescription Entry</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="icon" href="images/medicine.png" type="image/png">
+  <style>
+    :root {
+      --bg-color: #eef2f7;
+      --primary-color: #0062ff;
+      --primary-light: #6997ff;
+      --text-color: #5b648c;
+      --text-dark: #333950;
+      --accent-red: #e74c3c;
+      --shadow-light: #ffffff;
+      --shadow-dark: #d9e0e7;
+      --border-radius: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: var(--bg-color);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      color: var(--text-color);
+    }
+
+    /* --- MODIFIED: Hide container initially, add .loaded state --- */
+    .container {
+      max-width: 1200px;
+      width: 100%;
+      background-color: var(--bg-color);
+      padding: 2.5rem;
+      border-radius: 20px;
+      box-shadow: 10px 10px 20px var(--shadow-dark), -10px -10px 20px var(--shadow-light);
+      opacity: 0; /* Hide by default */
+      visibility: hidden;
+      transition: opacity 0.6s ease-out;
+    }
+    .container.loaded {
+      opacity: 1; /* Make visible */
+      visibility: visible;
+    }
+
+    /* --- ADDED: Full-page Loader Styles --- */
+    #loader-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-color);
+      display: flex; /* Visible by default */
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
+    }
+    #loader-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+    .loader-spinner {
+      width: 60px;
+      height: 60px;
+      border: 6px solid var(--shadow-dark);
+      border-top-color: var(--primary-color);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes fadeInScale {
+      from { opacity: 0; transform: scale(0.98); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    
+    @keyframes slideUpFadeIn {
+        from { opacity: 0; transform: translateY(15px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .top-nav-buttons { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 2.5rem; }
+    h2 { text-align: center; color: var(--text-dark); font-size: 2rem; font-weight: 600; margin-bottom: 2.5rem; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2.5rem; }
+    .form-section h3 { font-size: 1.25rem; color: var(--text-dark); margin-bottom: 1.5rem; font-weight: 600; display: flex; align-items: center; }
+    .count-badge { display: inline-flex; align-items: center; justify-content: center; background-color: var(--primary-color); color: white; font-size: 0.9rem; font-weight: 600; padding: 4px 10px; border-radius: 8px; margin-left: 12px; min-width: 28px; transition: all 0.3s ease; }
+    .count-badge:empty { transform: scale(0); opacity: 0; }
+    .input-group { margin-bottom: 1.5rem; }
+    label { font-weight: 500; margin-bottom: 8px; font-size: 0.9rem; display: block; }
+    input, select, textarea { width: 100%; padding: 14px 18px; border-radius: var(--border-radius); border: none; background-color: var(--bg-color); box-shadow: inset 5px 5px 10px var(--shadow-dark), inset -5px -5px 10px var(--shadow-light); font-size: 1rem; font-family: 'Poppins', sans-serif; color: var(--text-dark); transition: box-shadow 0.3s ease; }
+    input:focus, select:focus, textarea:focus { outline: none; box-shadow: inset 2px 2px 5px var(--shadow-dark), inset -2px -2px 5px var(--shadow-light), 0 0 0 2px var(--primary-color); }
+    textarea { resize: vertical; min-height: 80px; }
+    .management-section { margin-bottom: 2.5rem; }
+    .button-group { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
+    .save-button-group { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 2rem; }
+    .soft-button { padding: 14px 22px; border: none; border-radius: var(--border-radius); font-size: 1rem; font-weight: 500; cursor: pointer; transition: all 0.25s ease; background: var(--bg-color); color: var(--text-color); box-shadow: 5px 5px 10px var(--shadow-dark), -5px -5px 10px var(--shadow-light); display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
+    .soft-button:hover { color: var(--primary-color); }
+    .soft-button:active { box-shadow: inset 5px 5px 10px var(--shadow-dark), inset -5px -5px 10px var(--shadow-light); color: var(--primary-light); }
+    .save-btn { flex-grow: 1; color: white; background: var(--primary-color); box-shadow: 5px 5px 10px #0045b8, -5px -5px 10px var(--primary-light); }
+    .save-btn:hover { background: var(--primary-light); color: white; }
+    .save-btn:active { background: var(--primary-color); box-shadow: inset 5px 5px 10px #0045b8, inset -5px -5px 10px var(--primary-light); }
+    .medicine-list-container { padding: 1rem; border-radius: var(--border-radius); background-color: var(--bg-color); box-shadow: inset 5px 5px 10px var(--shadow-dark), inset -5px -5px 10px var(--shadow-light); max-height: 150px; overflow-y: auto; }
+    .medicine-list-container ul { margin: 0; padding-left: 20px; }
+    .medicine-list-container li { margin-bottom: 4px; }
+    #medicine-container { display: grid; gap: 1rem; }
+    .medicine-entry { background: var(--bg-color); border-radius: 16px; box-shadow: 7px 7px 15px var(--shadow-dark), -7px -7px 15px var(--shadow-light); animation: slideUpFadeIn 0.5s ease-out forwards; opacity: 0; padding: 1rem; }
+    .med-card-main { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; }
+    .med-card-main .input-group { flex: 1 1 150px; margin-bottom: 0; }
+    .med-card-main .med-name-group { flex-grow: 2; }
+    .med-card-actions { display: flex; gap: 0.5rem; }
+    .details-toggle-btn, .remove-med-btn { height: 51px; width: 51px; padding: 0; }
+    .details-toggle-btn .icon { transition: transform 0.3s ease-in-out; }
+    .medicine-entry.expanded .details-toggle-btn .icon { transform: rotate(180deg); }
+    .remove-med-btn { color: var(--accent-red); }
+    .med-card-details { max-height: 0; overflow: hidden; transition: all 0.4s ease-in-out; opacity: 0; }
+    .medicine-entry.expanded .med-card-details { max-height: 800px; margin-top: 1.5rem; opacity: 1; }
+    .tapering-section { margin-top: 1rem; padding: 1rem; border-radius: 8px; background-color: var(--bg-color); box-shadow: inset 3px 3px 7px var(--shadow-dark), inset -3px -3px 7px var(--shadow-light); animation: fadeInScale 0.4s ease; }
+    .tapering-row { display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; }
+    .tapering-row:last-child { margin-bottom: 0; }
+    .remove-tapering { padding: 0; width: 40px; height: 40px; border-radius: 50%; color: var(--accent-red); }
+    .add-tapering { padding: 10px 15px; }
+    @media (max-width: 992px) { .form-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) { body { padding: 1.5rem 0.5rem; } .container { padding: 1.5rem; } .button-group, .save-button-group { flex-direction: column; } }
+  </style>
+</head>
+<body>
+
+<!-- Full-page loader, visible on page load -->
+<div id="loader-overlay">
+  <div class="loader-spinner"></div>
+</div>
+
+<div class="container">
+    <div class="top-nav-buttons">
+        <a href="dashboard.html" class="soft-button">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+            <span>Dashboard</span>
+        </a>
+    </div>
+
+  <h2>ðŸ“ PRESCRIPTION ENTRY</h2>
+
+  <div class="form-grid">
+    <div class="form-section">
+      <h3>Patient Details</h3>
+      <div class="input-group"><label>Patient Name:</label><input id="pname" type="text" list="nameList" /></div>
+      <div class="input-group"><label>Mobile Number:</label><input id="pmobile" type="text" /></div>
+      <div class="input-group"><label>Age:</label><input id="page" type="text" /></div>
+      <div class="input-group"><label>Diagnosis:</label><input id="pdiagnosis" type="text" list="diagnosisList" /></div>
+    </div>
+    <div class="form-section">
+      <h3>Vitals & Labs</h3>
+      <div class="input-group"><label>SpOâ‚‚:</label><input id="spo2" type="text" /></div>
+      <div class="input-group"><label>Weight:</label><input id="weight" type="text" /></div>
+      <div class="input-group"><label>Blood Pressure:</label><input id="bp" type="text" /></div>
+      <div class="input-group"><label>Pulse:</label><input id="pulse" type="text" /></div>
+      <div class="input-group"><label>Temperature:</label><input id="temp" type="text" /></div>
+      <div class="input-group"><label>Lab Test:</label><input id="labtest" type="text" list="labTestList" /></div>
+      <div class="input-group"><label>Lab Report:</label><input id="labreport" type="text" list="labReportList" /></div>
+    </div>
+  </div>
+
+  <div class="management-section">
+    <h3>Medicines <span id="medicine-count-badge" class="count-badge"></span></h3>
+    <div class="button-group">
+      <button class="soft-button" onclick="addMedicine()">âž• Add Medicine Entry</button>
+      <button class="soft-button" onclick="addNewMedicine()">âž• Add New Name to List</button>
+      <button class="soft-button" onclick="deleteMedicineName()">âž– Delete Name from List</button>
+    </div>
+    <div class="medicine-list-container">
+      <label>Available Medicines:</label>
+      <ul id="medicineNameList"></ul>
+    </div>
+     <!-- MODIFIED: Added buttons for remark management -->
+     <div class="button-group" style="margin-top: 1.5rem;">
+      <button class="soft-button" onclick="addNewDosage()">âž• Add New Dosage</button>
+      <button class="soft-button" onclick="deleteDosage()">âž– Delete Dosage</button>
+      <button class="soft-button" onclick="addNewType()">âž• Add New Type</button>
+      <button class="soft-button" onclick="deleteType()">âž– Delete Type</button>
+      <button class="soft-button" onclick="addNewRemark()">âž• Add New Remark</button>
+      <button class="soft-button" onclick="deleteRemark()">âž– Delete Remark</button>
+    </div>
+  </div>
+  
+  <div id="medicine-container">
+      <datalist id="medicineOptions"></datalist>
+      <datalist id="nameList"></datalist>
+      <datalist id="diagnosisList"><option value="Fever (Pyrexia)"></option><option value="Common Cold"></option><option value="Hypertension"></option></datalist>
+      <datalist id="labTestList"><option value="CBE"></option><option value="RFT"></option><option value="LFT"></option></datalist>
+      <datalist id="labReportList"><option value="Normal"></option><option value="Abnormal"></option><option value="Pending"></option></datalist>
+      <!-- ADDED: Central datalist for remarks -->
+      <datalist id="remarkList"></datalist>
+  </div>
+  
+  <div class="save-button-group">
+    <button class="soft-button save-btn" onclick="saveAndViewPrescription()">ðŸ‘ï¸ Save & View Prescription</button>
+    <button class="soft-button" onclick="savePrescription()">ðŸ’¾ Save & Return to List</button>
+  </div>
+</div>
+
+<script>
+    let dosageList = [ "Â½ tab", "1 tab", "2 tab", "1-0-1", "1-1-0", "1-0-0", "0-1-0", "1-1-1", "0-0-1", "1/2-1/2-1/2", "SOS", "Before Food", "After Food" ];
+    let typeList = ["Tablet", "Capsule", "Syrup", "Injection", "Ointment", "Drops", "Suspension", "Cream", "Gel", "Lotion", "Inhaler"];
+    // MODIFIED: Changed to let to allow modification
+    let remarkList = ["Before Food", "After Food", "With Water", "With Milk", "DTTD", "SOS", "STAT", "Empty Stomach", "At Bedtime", "Continue"];
+    const fieldHistories = { pname: "history_names", pdiagnosis: "history_diagnosis" };
+    const medicineListStorageKey = "medicineNamesList";
+    const defaultMedicineNames = [ "Paracetamol", "Amoxicillin", "Ciprofloxacin", "Azithromycin", "Ibuprofen", "Metformin", "Amlodipine", "Losartan", "Atorvastatin", "Omeprazole", "Pantoprazole", "Montelukast" ];
+
+    function getStoredMedicineNames() {
+      const stored = localStorage.getItem(medicineListStorageKey);
+      if (stored) { try { return JSON.parse(stored); } catch (e) { return [...defaultMedicineNames]; } }
+      return [...defaultMedicineNames];
+    }
+    function saveMedicineNames(names) {
+      names.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+      localStorage.setItem(medicineListStorageKey, JSON.stringify(names));
+    }
+
+    function updateMedicineCount() {
+        const count = document.querySelectorAll('.medicine-entry').length;
+        const badge = document.getElementById('medicine-count-badge');
+        if (badge) { badge.textContent = count > 0 ? count : ''; }
+    }
+    
+    function loadHistory() {
+      for (let field in fieldHistories) {
+        const datalist = document.getElementById(field + "List");
+        if (datalist) {
+          const data = JSON.parse(localStorage.getItem(fieldHistories[field]) || "[]");
+          datalist.innerHTML = data.map(val => `<option value="${val}"></option>`).join("");
+        }
+      }
+    }
+    
+    function loadMedicineOptions() {
+      const currentMedicineNames = getStoredMedicineNames();
+      const medicineOptionsDatalist = document.getElementById("medicineOptions");
+      const medicineNameList = document.getElementById("medicineNameList");
+      medicineOptionsDatalist.innerHTML = currentMedicineNames.map(name => `<option value="${name}"></option>`).join('');
+      medicineNameList.innerHTML = currentMedicineNames.map(name => `<li>${name}</li>`).join('');
+    }
+    
+    function toggleDetails(button) { button.closest('.medicine-entry').classList.toggle('expanded'); }
+    function removeMedicineEntry(button) { button.closest('.medicine-entry').remove(); updateMedicineCount(); }
+
+    function addMedicine(med = {}) {
+      const medDiv = document.createElement("div");
+      const hasDetails = med.remark || med.content || (med.tapering && med.tapering.length > 0);
+      medDiv.className = `medicine-entry ${hasDetails ? 'expanded' : ''}`;
+      
+      const uniqueId = `tapering-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+      dosageList.sort(); typeList.sort();
+
+      // MODIFIED: Removed inline datalist for remarks to use the central one
+      medDiv.innerHTML = `
+        <div class="med-card-main">
+            <div class="input-group med-name-group"><label>Medicine Name</label><input class="med-name" type="text" list="medicineOptions" placeholder="Start typing..." value="${med.name || ''}" /></div>
+            <div class="input-group"><label>Type</label><select class="med-type">${typeList.map(t => `<option value="${t}" ${med.type === t ? 'selected' : ''}>${t}</option>`).join("")}</select></div>
+            <div class="input-group"><label>Dosage</label><select class="med-dose">${dosageList.map(d => `<option value="${d}" ${med.dosage === d ? 'selected' : ''}>${d}</option>`).join("")}</select></div>
+            <div class="input-group"><label>Days</label><input class="med-qty" type="number" min="0" value="${med.quantity || 1}" /></div>
+            <div class="med-card-actions">
+                <button type="button" class="soft-button details-toggle-btn" onclick="toggleDetails(this)" title="Toggle Details"><svg class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+                <button type="button" class="soft-button remove-med-btn" onclick="removeMedicineEntry(this)" title="Remove Medicine"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+            </div>
+        </div>
+        <div class="med-card-details">
+            <div class="input-group"><label>Remark</label><input class="med-remark" type="text" list="remarkList" value="${med.remark || ''}" placeholder="e.g., After food..."/></div>
+            <div class="input-group"><label>Additional Content</label><textarea class="med-content" placeholder="e.g., Pharmacy instructions...">${med.content || ''}</textarea></div>
+            <div class="tapering-toggle">
+                <input type="checkbox" class="tapering-checkbox" id="${uniqueId}" ${med.tapering ? 'checked' : ''} onchange="this.closest('.med-card-details').querySelector('.tapering-section').style.display = this.checked ? 'block' : 'none'">
+                <label for="${uniqueId}">Tapering Required</label>
+            </div>
+            <div class="tapering-section" style="display:${med.tapering ? 'block' : 'none'};">
+                <div class="tapering-entries">${med.tapering && Array.isArray(med.tapering) ? med.tapering.map(t => `<div class="tapering-row"><select class="taper-dose">${dosageList.map(d => `<option value="${d}" ${t.dosage === d ? 'selected' : ''}>${d}</option>`).join("")}</select><input class="taper-days" type="number" min="1" placeholder="Days" value="${t.days || ''}" /><button type="button" class="soft-button remove-tapering" onclick="this.closest('.tapering-row').remove()" title="Remove step">Ã—</button></div>`).join("") : ''}</div>
+                <button type="button" class="soft-button add-tapering" onclick="addTaperingRow(this)">+ Add Step</button>
+            </div>
+        </div>
+      `;
+      document.getElementById("medicine-container").appendChild(medDiv);
+      updateMedicineCount();
+    }
+    
+    function addTaperingRow(button) {
+      const taperingEntries = button.closest('.tapering-section').querySelector('.tapering-entries');
+      const newRow = document.createElement('div');
+      newRow.className = 'tapering-row';
+      newRow.innerHTML = `<select class="taper-dose">${dosageList.map(d => `<option value="${d}">${d}</option>`).join("")}</select><input class="taper-days" type="number" min="1" placeholder="Days" /><button type="button" class="soft-button remove-tapering" onclick="this.closest('.tapering-row').remove()" title="Remove step">Ã—</button>`;
+      taperingEntries.appendChild(newRow);
+    }
+    
+    function addNewMedicine() {
+      const newMedicineName = prompt("Enter new medicine name:");
+      if (newMedicineName && newMedicineName.trim()) {
+        const trimmedName = newMedicineName.trim(); let names = getStoredMedicineNames();
+        if (names.some(n => n.toLowerCase() === trimmedName.toLowerCase())) { alert(`"${trimmedName}" already exists.`); return; }
+        names.push(trimmedName); saveMedicineNames(names); loadMedicineOptions(); alert(`"${trimmedName}" added.`);
+      }
+    }
+    function deleteMedicineName() {
+      const nameToDelete = prompt("Enter medicine name to delete:");
+      if (nameToDelete && nameToDelete.trim()) {
+        const trimmedName = nameToDelete.trim(); let names = getStoredMedicineNames(); const initialLength = names.length;
+        names = names.filter(n => n.toLowerCase() !== trimmedName.toLowerCase());
+        if (names.length < initialLength) { saveMedicineNames(names); loadMedicineOptions(); alert(`"${trimmedName}" deleted.`); } else { alert(`"${trimmedName}" not found.`); }
+      }
+    }
+
+    function updateAllDosageDropdowns() {
+      const allDosageSelects = document.querySelectorAll('.med-dose, .taper-dose');
+      dosageList.sort();
+      allDosageSelects.forEach(select => {
+        const currentValue = select.value;
+        select.innerHTML = dosageList.map(d => `<option value="${d}">${d}</option>`).join('');
+        select.value = dosageList.includes(currentValue) ? currentValue : dosageList[0];
+      });
+    }
+
+    function addNewDosage() {
+      const newDosage = prompt("Enter new dosage:");
+      if (newDosage && newDosage.trim()) {
+        const trimmed = newDosage.trim();
+        if (!dosageList.includes(trimmed)) { dosageList.push(trimmed); updateAllDosageDropdowns(); alert(`Dosage "${trimmed}" added.`); }
+        else { alert("Dosage already exists."); }
+      }
+    }
+    function deleteDosage() {
+      const dosageToDelete = prompt("Enter exact dosage to delete:");
+      if (dosageToDelete && dosageToDelete.trim()) {
+        const trimmed = dosageToDelete.trim(); const index = dosageList.indexOf(trimmed);
+        if (index > -1) { dosageList.splice(index, 1); updateAllDosageDropdowns(); alert(`Dosage "${trimmed}" deleted.`); }
+        else { alert("Dosage not found."); }
+      }
+    }
+    
+    function updateAllTypeDropdowns() {
+      const allTypeSelects = document.querySelectorAll('.med-type');
+      typeList.sort();
+      allTypeSelects.forEach(select => {
+        const currentValue = select.value;
+        select.innerHTML = typeList.map(t => `<option value="${t}">${t}</option>`).join('');
+        select.value = typeList.includes(currentValue) ? currentValue : typeList[0];
+      });
+    }
+
+    function addNewType() {
+      const newType = prompt("Enter new medicine type:");
+      if (newType && newType.trim()) {
+        const trimmed = newType.trim();
+        if (!typeList.some(t => t.toLowerCase() === trimmed.toLowerCase())) {
+          typeList.push(trimmed);
+          updateAllTypeDropdowns();
+          alert(`Type "${trimmed}" added.`);
+        } else {
+          alert("Type already exists.");
+        }
+      }
+    }
+
+    function deleteType() {
+      const typeToDelete = prompt("Enter exact type to delete:");
+      if (typeToDelete && typeToDelete.trim()) {
+        const trimmed = typeToDelete.trim();
+        const index = typeList.findIndex(t => t.toLowerCase() === trimmed.toLowerCase());
+        if (index > -1) {
+          const deletedType = typeList[index];
+          typeList.splice(index, 1);
+          updateAllTypeDropdowns();
+          alert(`Type "${deletedType}" deleted.`);
+        } else {
+          alert("Type not found.");
+        }
+      }
+    }
+
+    // --- ADDED: Remark Management ---
+    function updateAllRemarkDatalists() {
+      const remarkDatalist = document.getElementById('remarkList');
+      if (remarkDatalist) {
+        remarkList.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+        remarkDatalist.innerHTML = remarkList.map(r => `<option value="${r}"></option>`).join('');
+      }
+    }
+
+    function addNewRemark() {
+      const newRemark = prompt("Enter new remark:");
+      if (newRemark && newRemark.trim()) {
+        const trimmed = newRemark.trim();
+        if (!remarkList.some(r => r.toLowerCase() === trimmed.toLowerCase())) {
+          remarkList.push(trimmed);
+          updateAllRemarkDatalists();
+          alert(`Remark "${trimmed}" added.`);
+        } else {
+          alert("Remark already exists.");
+        }
+      }
+    }
+
+    function deleteRemark() {
+      const remarkToDelete = prompt("Enter exact remark to delete:");
+      if (remarkToDelete && remarkToDelete.trim()) {
+        const trimmed = remarkToDelete.trim();
+        const index = remarkList.findIndex(r => r.toLowerCase() === trimmed.toLowerCase());
+        if (index > -1) {
+          const deletedRemark = remarkList[index];
+          remarkList.splice(index, 1);
+          updateAllRemarkDatalists();
+          alert(`Remark "${deletedRemark}" deleted.`);
+        } else {
+          alert("Remark not found.");
+        }
+      }
+    }
+    // --- End of Added Remark Management ---
+
+    function collectPrescription() {
+        if (!document.getElementById("pname").value.trim() || !document.getElementById("pmobile").value.trim()) {
+            alert("Patient Name and Mobile Number are required."); return null;
+        }
+        const medicines = []; let isValid = true;
+        document.querySelectorAll(".medicine-entry").forEach((entry, index) => {
+            if (!isValid) return;
+            const medName = entry.querySelector(".med-name").value.trim();
+            if (!medName) { alert(`Medicine Name is required for entry #${index + 1}.`); isValid = false; return; }
+            const tapering = [];
+            if (entry.querySelector('.tapering-checkbox').checked) {
+                entry.querySelectorAll('.tapering-row').forEach((row, tIndex) => {
+                    const days = row.querySelector('.taper-days').value; const dose = row.querySelector('.taper-dose').value;
+                    if (!days || parseInt(days) <= 0 || !dose) { alert(`Valid dosage and days (>0) required for tapering step #${tIndex+1} in medicine #${index+1}.`); isValid = false; }
+                    if(isValid) tapering.push({ dosage: dose, days: days });
+                });
+            }
+            if(!isValid) return;
+            medicines.push({ name: medName, type: entry.querySelector(".med-type").value, dosage: entry.querySelector(".med-dose").value, quantity: entry.querySelector(".med-qty").value || '0', remark: entry.querySelector(".med-remark").value, content: entry.querySelector(".med-content").value, tapering: tapering.length > 0 ? tapering : null });
+        });
+        if (!isValid) return null;
+        if (medicines.length === 0) { if (!confirm("No medicines added. Save anyway?")) { return null; }}
+        return {
+            name: document.getElementById("pname").value.trim(), phone: document.getElementById("pmobile").value.trim(), age: document.getElementById("page").value,
+            diagnosis: document.getElementById("pdiagnosis").value.trim(),
+            spo2: document.getElementById("spo2").value, weight: document.getElementById("weight").value, bp: document.getElementById("bp").value,
+            pulse: document.getElementById("pulse").value, temp: document.getElementById("temp").value, labtest: document.getElementById("labtest").value,
+            labreport: document.getElementById("labreport").value, date: new Date().toISOString().slice(0, 10), medicines: medicines
+        };
+    }
+    
+    function showLoaderAndRedirect(url) {
+        const loader = document.getElementById('loader-overlay');
+        loader.classList.remove('hidden'); // Show loader
+        setTimeout(() => {
+            window.location.href = url;
+        }, 2000); // 2-second delay
+    }
+
+    function savePrescription() {
+        const prescription = collectPrescription();
+        if (!prescription) return;
+        const allPrescriptions = JSON.parse(localStorage.getItem("prescriptions")) || [];
+        allPrescriptions.push(prescription);
+        localStorage.setItem("prescriptions", JSON.stringify(allPrescriptions));
+        Object.keys(fieldHistories).forEach(id => updateHistory(id, prescription));
+        localStorage.removeItem("selectedPatient");
+        showLoaderAndRedirect("prescriptions.html");
+    }
+
+    function saveAndViewPrescription() {
+        const prescription = collectPrescription();
+        if (!prescription) return;
+        const allPrescriptions = JSON.parse(localStorage.getItem("prescriptions")) || [];
+        allPrescriptions.push(prescription);
+        localStorage.setItem("prescriptions", JSON.stringify(allPrescriptions));
+        localStorage.setItem("viewrx_index", allPrescriptions.length - 1);
+        Object.keys(fieldHistories).forEach(id => updateHistory(id, prescription));
+        localStorage.removeItem("selectedPatient");
+        showLoaderAndRedirect("viewrxpage.html");
+    }
+
+    function updateHistory(fieldId, prescriptionObject) {
+      if (!fieldHistories[fieldId]) return;
+      let value;
+      if (fieldId === 'pname') { value = prescriptionObject.name; } 
+      else if (fieldId === 'pdiagnosis') { value = prescriptionObject.diagnosis; } 
+      else { value = prescriptionObject[fieldId]; }
+      if (!value) return;
+      const key = fieldHistories[fieldId];
+      let history = JSON.parse(localStorage.getItem(key) || "[]");
+      if (!history.some(item => item.toLowerCase() === value.toLowerCase())) { 
+          history.push(value); 
+          if (history.length > 50) history.shift(); 
+          localStorage.setItem(key, JSON.stringify(history)); 
+      }
+    }
+    
+    window.onload = () => {
+      const loader = document.getElementById('loader-overlay');
+      const container = document.querySelector('.container');
+
+      setTimeout(() => {
+        loader.classList.add('hidden');
+        container.classList.add('loaded');
+      }, 2000);
+
+      loadHistory();
+      loadMedicineOptions();
+      // ADDED: Populate remarks on load
+      updateAllRemarkDatalists();
+      
+      const selectedPatient = JSON.parse(localStorage.getItem("selectedPatient"));
+      if (selectedPatient) {
+        document.getElementById("pname").value = selectedPatient.name || "";
+        document.getElementById("pmobile").value = selectedPatient.mobile || "";
+        document.getElementById("page").value = selectedPatient.age || "";
+      }
+      updateMedicineCount();
+    };
+</script>
+
+<div id="liveData">Loading live data...</div>
+
+<script>
+function fetchLiveData() {
+    fetch("data.php")
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById("liveData").innerText =
+                `Server time: ${data.time} - Message: ${data.message}`;
+        })
+        .catch(err => console.error("Error fetching live data:", err));
+}
+fetchLiveData();
+setInterval(fetchLiveData, 5000);
+</script>
+<div id="liveData" style="padding:10px; background:#eef; border:1px solid #99f; margin-top:10px;">
+Loading live data...
+</div>
+
+<script>
+function fetchLiveData() {
+    fetch("data.php")
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById("liveData").innerText =
+                `Server time: ${data.time} | Message: ${data.message}`;
+        })
+        .catch(err => {
+            document.getElementById("liveData").innerText = "Error loading live data.";
+            console.error("Error fetching live data:", err);
+        });
+}
+fetchLiveData();
+setInterval(fetchLiveData, 5000);
+</script>
+<script>
+function fetchRealTimeData() {
+    fetch('data.php')
+    .then(response => response.json())
+    .then(data => {
+        console.log('Real-time data:', data);
+        // Update your page elements here, example:
+        document.getElementById('realtime-time').innerText = data.time;
+        document.getElementById('realtime-message').innerText = data.message;
+    })
+    .catch(console.error);
+}
+
+// Fetch every 3 seconds
+setInterval(fetchRealTimeData, 3000);
+window.onload = fetchRealTimeData;
+</script>
+</body>
+</html>
+
+

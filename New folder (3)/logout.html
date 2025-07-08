@@ -1,0 +1,72 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" href="images/medicine.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Logout</title>
+  <script>
+    // Clear session or local storage and redirect to login page
+    localStorage.clear();
+    window.location.href = "login.html";  // Redirect to the login page
+  </script>
+</head>
+<body>
+  <p>Logging out...</p>
+<div id="liveData">Loading live data...</div>
+
+<script>
+function fetchLiveData() {
+    fetch("data.php")
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById("liveData").innerText =
+                `Server time: ${data.time} - Message: ${data.message}`;
+        })
+        .catch(err => console.error("Error fetching live data:", err));
+}
+fetchLiveData();
+setInterval(fetchLiveData, 5000);
+</script>
+<div id="liveData" style="padding:10px; background:#eef; border:1px solid #99f; margin-top:10px;">
+Loading live data...
+</div>
+
+<script>
+function fetchLiveData() {
+    fetch("data.php")
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById("liveData").innerText =
+                `Server time: ${data.time} | Message: ${data.message}`;
+        })
+        .catch(err => {
+            document.getElementById("liveData").innerText = "Error loading live data.";
+            console.error("Error fetching live data:", err);
+        });
+}
+fetchLiveData();
+setInterval(fetchLiveData, 5000);
+</script>
+<script>
+function fetchRealTimeData() {
+    fetch('data.php')
+    .then(response => response.json())
+    .then(data => {
+        console.log('Real-time data:', data);
+        // Update your page elements here, example:
+        document.getElementById('realtime-time').innerText = data.time;
+        document.getElementById('realtime-message').innerText = data.message;
+    })
+    .catch(console.error);
+}
+
+// Fetch every 3 seconds
+setInterval(fetchRealTimeData, 3000);
+window.onload = fetchRealTimeData;
+</script>
+</body>
+</html>
+
+
+
